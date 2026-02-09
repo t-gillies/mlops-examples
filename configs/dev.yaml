@@ -1,18 +1,21 @@
 mlflow:
   tracking_uri: "http://localhost:5000"
   experiment_name: "mlops-examples/dev"
-  registered_model_name: "MLOpsExamples_Iris_LogReg"
+  registered_model_name: "MLOpsExamples_BreastCancer_RF"
   model_stage: ""
 
 data:
-  path: "data/iris.csv"
+  path: "data/breast_cancer.csv"
 
 train:
-  model_type: "logreg"
+  model_type: "rf"
   seed: 42
   test_size: 0.2
-  max_iter: 300
-  C: 1.0
+  n_estimators: 200
+  max_depth: 6
+  min_samples_split: 2
+  min_samples_leaf: 1
+  max_features: "sqrt"
 
 artifacts:
   out_dir: "artifacts"

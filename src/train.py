@@ -8,11 +8,22 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
+import numpy as np
 import pandas as pd
 import yaml
 from mlflow.tracking import MlflowClient
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.model_selection import train_test_split
 
 
@@ -41,6 +52,50 @@ def plot_confusion(cm, out_path: Path) -> None:
     plt.xlabel("Predicted")
     plt.ylabel("True")
     plt.colorbar()
+    plt.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path)
+    plt.close(fig)
+
+
+def plot_roc_curve(y_true, y_score, out_path: Path) -> None:
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    fig = plt.figure()
+    plt.plot(fpr, tpr, label="ROC")
+    plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Chance")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve")
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path)
+    plt.close(fig)
+
+
+def plot_pr_curve(y_true, y_score, out_path: Path) -> None:
+    precision, recall, _ = precision_recall_curve(y_true, y_score)
+    fig = plt.figure()
+    plt.plot(recall, precision, label="PR")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title("Precision-Recall Curve")
+    plt.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path)
+    plt.close(fig)
+
+
+def plot_feature_importance(feature_names, importances, out_path: Path, top_n: int = 15) -> None:
+    order = np.argsort(importances)[::-1]
+    top_idx = order[:top_n]
+    fig = plt.figure(figsize=(8, 6))
+    plt.barh(
+        [feature_names[i] for i in top_idx][::-1],
+        importances[top_idx][::-1],
+    )
+    plt.xlabel("Importance")
+    plt.title("Top Feature Importances")
     plt.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path)
@@ -80,25 +135,51 @@ def main(config_path: str) -> None:
         stratify=y,
     )
 
-    model = LogisticRegression(
-        max_iter=int(cfg["train"]["max_iter"]),
-        C=float(cfg["train"]["C"]),
+    model = RandomForestClassifier(
+        n_estimators=int(cfg["train"]["n_estimators"]),
+        max_depth=(
+            None
+            if str(cfg["train"]["max_depth"]).lower() in ("none", "null")
+            else int(cfg["train"]["max_depth"])
+        ),
+        min_samples_split=int(cfg["train"]["min_samples_split"]),
+        min_samples_leaf=int(cfg["train"]["min_samples_leaf"]),
+        max_features=cfg["train"]["max_features"],
+        random_state=int(cfg["train"]["seed"]),
         n_jobs=None,
     )
     model.fit(Xtr, ytr)
     preds = model.predict(Xte)
+    probs = model.predict_proba(Xte)[:, 1]
 
     acc = accuracy_score(yte, preds)
     f1 = f1_score(yte, preds, average="macro")
+    precision = precision_score(yte, preds)
+    recall = recall_score(yte, preds)
+    roc_auc = roc_auc_score(yte, probs)
+    pr_auc = average_precision_score(yte, probs)
     cm = confusion_matrix(yte, preds)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / "metrics.json"
     cm_path = out_dir / "confusion_matrix.png"
+    roc_path = out_dir / "roc_curve.png"
+    pr_path = out_dir / "pr_curve.png"
+    fi_path = out_dir / "feature_importance.png"
 
-    metrics = {"val_accuracy": acc, "val_f1_macro": f1}
+    metrics = {
+        "val_accuracy": acc,
+        "val_f1_macro": f1,
+        "val_precision": precision,
+        "val_recall": recall,
+        "val_roc_auc": roc_auc,
+        "val_pr_auc": pr_auc,
+    }
     metrics_path.write_text(json.dumps(metrics, indent=2))
     plot_confusion(cm, cm_path)
+    plot_roc_curve(yte, probs, roc_path)
+    plot_pr_curve(yte, probs, pr_path)
+    plot_feature_importance(X.columns.to_list(), model.feature_importances_, fi_path)
 
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
@@ -114,12 +195,18 @@ def main(config_path: str) -> None:
         mlflow.log_param("model_type", cfg["train"]["model_type"])
         mlflow.log_param("seed", cfg["train"]["seed"])
         mlflow.log_param("test_size", cfg["train"]["test_size"])
-        mlflow.log_param("max_iter", cfg["train"]["max_iter"])
-        mlflow.log_param("C", cfg["train"]["C"])
+        mlflow.log_param("n_estimators", cfg["train"]["n_estimators"])
+        mlflow.log_param("max_depth", cfg["train"]["max_depth"])
+        mlflow.log_param("min_samples_split", cfg["train"]["min_samples_split"])
+        mlflow.log_param("min_samples_leaf", cfg["train"]["min_samples_leaf"])
+        mlflow.log_param("max_features", cfg["train"]["max_features"])
 
         mlflow.log_metrics(metrics)
         mlflow.log_artifact(str(metrics_path), artifact_path="eval")
         mlflow.log_artifact(str(cm_path), artifact_path="eval")
+        mlflow.log_artifact(str(roc_path), artifact_path="eval")
+        mlflow.log_artifact(str(pr_path), artifact_path="eval")
+        mlflow.log_artifact(str(fi_path), artifact_path="eval")
 
         input_example = Xtr.head(5)
         signature = mlflow.models.infer_signature(Xtr, model.predict(Xtr))
