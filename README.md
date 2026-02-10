@@ -40,6 +40,18 @@ uv --version
 - RustFS S3: http://localhost:9000
 - RustFS Console: http://localhost:9001
 
+## Makefile commands
+
+Run `make help` to see the command list in your terminal.
+
+- `make setup`: Create `.venv` and install dependencies via `uv sync`
+- `make lock`: Refresh `uv.lock`
+- `make data`: Generate deterministic dataset and track it with DVC
+- `make data-append`: Append one row to the dataset and track it with DVC
+- `make pull`: Pull dataset from DVC remote (auto-loads creds from `../mlops-services` if needed)
+- `make push`: Push dataset to DVC remote (auto-loads creds from `../mlops-services` if needed)
+- `make train`: Train and log with `configs/dev.yaml`
+
 ---
 
 ## One-time setup (per developer machine)

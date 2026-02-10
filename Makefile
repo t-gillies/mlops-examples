@@ -1,4 +1,14 @@
-.PHONY: setup data data-append pull push train
+.PHONY: help setup lock data data-append pull push train
+
+help:
+	@echo "Make targets:"
+	@echo "  make setup         Create virtual environment and install dependencies"
+	@echo "  make lock          Refresh uv.lock"
+	@echo "  make data          Generate deterministic dataset and track with DVC"
+	@echo "  make data-append   Append one row to dataset and track with DVC"
+	@echo "  make pull          Pull DVC data (auto-loads creds from mlops-services if needed)"
+	@echo "  make push          Push DVC data (auto-loads creds from mlops-services if needed)"
+	@echo "  make train         Train model with configs/dev.yaml"
 
 MLOPS_SERVICES_DIR ?= ../mlops-services
 
