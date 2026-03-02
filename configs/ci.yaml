@@ -3,6 +3,8 @@ mlflow:
   experiment_name: "mlops-examples/ci"
   registered_model_name: "MLOpsExamples_BreastCancer_RF"
   model_stage: ""
+  tags:
+    pipeline: "mlops-examples"
 
 data:
   path: "data/breast_cancer.csv"
