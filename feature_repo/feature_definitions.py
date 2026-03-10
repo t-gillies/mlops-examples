@@ -6,9 +6,11 @@ from feast import (
     Entity,
     FeatureView,
     Field,
-    FileSource,
     ValueType
 )
+
+from feast.infra.offline_stores.contrib.postgres_offline_store.postgres_source import PostgreSQLSource
+
 
 patient = Entity(name = 'patient_id', value_type = ValueType.INT64, description = 'ID of the patient')
 
@@ -47,10 +49,8 @@ features_fv = FeatureView(
         Field(name = "worst symmetry", dtype = Float64),
         Field(name = "worst fractal dimension", dtype = Float64),
     ],
-    source = FileSource(path = 'data/features_df.parquet', event_timestamp_column='event_timestamp'),
-    online = True,
-    tags={}
-    )
+    source = PostgreSQLSource(table="public.features_df", timestamp_field="event_timestamp")
+)
 
 target_fv = FeatureView(
     name = "target_df_feature_view",
@@ -59,7 +59,5 @@ target_fv = FeatureView(
     schema = [
         Field(name = "target", dtype = Int64)
     ],
-    source = FileSource(path = 'data/target_df.parquet', event_timestamp_column='event_timestamp'),
-    online = True,
-    tags={}
-    )
+    source = PostgreSQLSource(table="public.target_df", timestamp_field="event_timestamp")
+)
