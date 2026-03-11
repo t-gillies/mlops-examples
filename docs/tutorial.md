@@ -24,8 +24,20 @@ set -a
 source ../mlops-services/env/config.env
 source ../mlops-services/env/secrets.env
 set +a
+
+# RustFS (DVC) creds
 export AWS_ACCESS_KEY_ID="$RUSTFS_ACCESS_KEY"
 export AWS_SECRET_ACCESS_KEY="$RUSTFS_SECRET_KEY"
+
+# MLflow auth + endpoint (behind Nginx)
+export MLFLOW_TRACKING_USERNAME="$MLFLOW_AUTH_ADMIN_USERNAME"
+export MLFLOW_TRACKING_PASSWORD="$MLFLOW_AUTH_ADMIN_PASSWORD"
+
+# Postgres (Feast offline store & MlFlow)
+export POSTGRES_USER="$POSTGRES_USER"
+export POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
 ```
 
 If your repo layout differs, set the path for Make:
@@ -53,8 +65,8 @@ make up
 ```
 
 Verify:
-- MLflow UI: `http://localhost:5000`
-- RustFS S3: `http://localhost:9000`
+- MLflow UI: 'http://localhost/mlflow'
+- RustFS S3: 'http://localhost:9002'
 
 ---
 

@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 import pandas as pd
 
@@ -38,7 +39,8 @@ def main(config_path: str) -> None:
     store = FeatureStore(repo_path=cfg["features"]["feast_repo"])
     service = store.get_feature_service("patient_features")
 
-    engine = create_engine(cfg["features"]["offline_store_uri"])
+    offline_store_uri = os.path.expandvars(cfg["features"]["offline_store_uri"])
+    engine = create_engine(offline_store_uri)
     entity_df = pd.read_sql("SELECT * FROM public.target_df", con=engine)
 
     df = store.get_historical_features(

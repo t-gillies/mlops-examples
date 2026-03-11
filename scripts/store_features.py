@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import os
 
 import pandas as pd
 import yaml
@@ -28,7 +29,7 @@ def main(config_path: str) -> None:
     target_df["patient_id"] = list(range(1, len(df) + 1))
 
     # Write to Postgres Offline Store
-    engine = create_engine(cfg["features"]["offline_store_uri"])
+    engine = create_engine(os.path.expandvars(cfg["features"]["offline_store_uri"]))
     features_df.to_sql("features_df", con=engine, schema="public", if_exists="replace", index=False)
     target_df.to_sql("target_df", con=engine, schema="public", if_exists="replace", index=False)
 

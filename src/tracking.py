@@ -109,7 +109,7 @@ def log_run(
 
         model_info = mlflow.sklearn.log_model(
             sk_model=model,
-            name=registered_model_name,
+            artifact_path=registered_model_name,
             signature=signature,
             input_example=input_example,
             registered_model_name=registered_model_name,
