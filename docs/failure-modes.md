@@ -45,6 +45,19 @@ Revert the config change and re-run:
 make pull
 ```
 
+## 4) Feast offline store unreachable
+Break it:
+```bash
+export POSTGRES_HOST="bad-host"
+make features
+```
+
+Fix it:
+```bash
+unset POSTGRES_HOST
+make features
+```
+
 ### What to observe
 - Errors should point to credentials or network connectivity.
 - Ensure fixes are done via env vars or config, not by editing code.

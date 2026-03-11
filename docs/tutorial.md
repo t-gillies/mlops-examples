@@ -8,7 +8,7 @@ This tutorial walks through a repeatable workflow:
 5. Commit the change
 5. Repeat to show reproducibility and change tracking
 
-It assumes you are using `mlops-services` locally (MLflow + RustFS).
+It assumes you are using `mlops-services` locally (MLflow + RustFS + Postgres).
 
 ---
 
@@ -18,27 +18,6 @@ It assumes you are using `mlops-services` locally (MLflow + RustFS).
 - Git
 - `mlops-services` running locally
 
-If you need to set credentials from `mlops-services`:
-```bash
-set -a
-source ../mlops-services/env/config.env
-source ../mlops-services/env/secrets.env
-set +a
-
-# RustFS (DVC) creds
-export AWS_ACCESS_KEY_ID="$RUSTFS_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$RUSTFS_SECRET_KEY"
-
-# MLflow auth + endpoint (behind Nginx)
-export MLFLOW_TRACKING_USERNAME="$MLFLOW_AUTH_ADMIN_USERNAME"
-export MLFLOW_TRACKING_PASSWORD="$MLFLOW_AUTH_ADMIN_PASSWORD"
-
-# Postgres (Feast offline store & MlFlow)
-export POSTGRES_USER="$POSTGRES_USER"
-export POSTGRES_PASSWORD="$POSTGRES_PASSWORD"
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-```
 
 If your repo layout differs, set the path for Make:
 ```bash
@@ -57,7 +36,7 @@ If you already did this, you can skip it. Use `uv run ...` for all commands.
 
 ---
 
-## Step 0: Start Services
+## Step 0: Start Services & Set Credentials
 In another terminal:
 ```bash
 cd ../mlops-services
@@ -66,7 +45,24 @@ make up
 
 Verify:
 - MLflow UI: 'http://localhost/mlflow'
-- RustFS S3: 'http://localhost:9002'
+- RustFS S3: 'http://localhost:9000'
+
+Set credentials from `mlops-services`:
+
+```bash
+set -a
+source ../mlops-services/env/config.env
+source ../mlops-services/env/secrets.env
+set +a
+
+export AWS_ACCESS_KEY_ID="$RUSTFS_ACCESS_KEY"
+export AWS_SECRET_ACCESS_KEY="$RUSTFS_SECRET_KEY"
+
+export MLFLOW_TRACKING_USERNAME="$MLFLOW_AUTH_ADMIN_USERNAME"
+export MLFLOW_TRACKING_PASSWORD="$MLFLOW_AUTH_ADMIN_PASSWORD"
+
+export POSTGRES_HOST=localhost
+```
 
 ---
 
