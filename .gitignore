@@ -10,7 +10,7 @@ __pycache__/
 .dvc/tmp/
 
 # Data (we will track via DVC)
-data/iris.csv
+data/breast_cancer.csv
 
 # Artifacts
 artifacts/

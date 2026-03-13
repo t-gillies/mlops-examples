@@ -1,4 +1,4 @@
-.PHONY: help setup lock data data-append pull push train
+.PHONY: help setup lock data data-append pull push features train
 
 help:
 	@echo "Make targets:"
@@ -45,6 +45,10 @@ pull:
 
 push:
 	$(call DVC_WITH_ENV,push)
+
+features:
+	uv run feast -c feature_repo apply
+	uv run python scripts/store_features.py --config configs/dev.yaml
 
 train:
 	uv run python src/train.py --config configs/dev.yaml

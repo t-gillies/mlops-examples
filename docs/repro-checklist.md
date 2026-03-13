@@ -7,6 +7,7 @@ To reproduce a model run, you need:
 - **Config**: the training config used for the run
 - **Environment**: Python + dependency versions (`uv.lock`)
 - **MLflow run**: the run ID to inspect artifacts and metrics
+- **Feast offline store**: the feature tables used for training (rebuild with `make features`)
 
 ## Quick Repro Steps
 1) In MLflow, open the run and note `git_sha` + `data_sha256`.
@@ -18,8 +19,12 @@ git checkout <git_sha>
 ```bash
 make pull
 ```
-4) Re-run training:
+4) Rebuild the Feast offline store (if using Feast):
+```bash
+make features
+```
+5) Re-run training:
 ```bash
 make train
 ```
-5) Compare metrics/artifacts in MLflow.
+6) Compare metrics/artifacts in MLflow.

@@ -5,7 +5,8 @@ This repo is a teaching + demo project for our MLOps stack:
 - DVC: data versioning (Git tracks metadata; data lives in object storage)
 - MLflow: experiment tracking + artifacts + Model Registry
 - RustFS (S3-compatible): artifact storage for DVC (and MLflow server artifacts)
-- Postgres: MLflow backend store (runs/registry metadata)
+- Feast: feature store for training data
+- Postgres: MLflow backend store (runs/registry metadata) and Feast offline store
 
 For a full walkthrough, see `docs/tutorial.md`. See `docs/README.md` for the full docs index.
 
@@ -13,7 +14,7 @@ For a full walkthrough, see `docs/tutorial.md`. See `docs/README.md` for the ful
 - Python 3.11+
 - `uv` (required)
 - Git
-- DVC remote and MLflow tracking server reachable from your machine/network
+- DVC remote, MLflow tracking server, and Postgres reachable from your machine/network
 
 ### Install uv
 `uv` is a fast Python package manager and virtual environment tool. We prefer it here because it installs quickly, respects the committed `uv.lock` for reproducible environments, and reduces “works on my machine” issues during training.
@@ -36,9 +37,8 @@ uv --version
 ```
 
 ## Local endpoints (mlops-services default)
-- MLflow: http://localhost:5000
+- MLflow UI: http://localhost/mlflow
 - RustFS S3: http://localhost:9000
-- RustFS Console: http://localhost:9001
 
 ## Makefile commands
 
@@ -50,6 +50,7 @@ Run `make help` to see the command list in your terminal.
 - `make data-append`: Append one row to the dataset and track it with DVC
 - `make pull`: Pull dataset from DVC remote (auto-loads creds from `../mlops-services` if needed)
 - `make push`: Push dataset to DVC remote (auto-loads creds from `../mlops-services` if needed)
+- `make features`: Apply Feast definitions and load features into Postgres
 - `make train`: Train and log with `configs/dev.yaml`
 
 ---
@@ -100,8 +101,14 @@ set -a
 source ../mlops-services/env/config.env
 source ../mlops-services/env/secrets.env
 set +a
+
 export AWS_ACCESS_KEY_ID="$RUSTFS_ACCESS_KEY"
 export AWS_SECRET_ACCESS_KEY="$RUSTFS_SECRET_KEY"
+
+export MLFLOW_TRACKING_USERNAME="$MLFLOW_AUTH_ADMIN_USERNAME"
+export MLFLOW_TRACKING_PASSWORD="$MLFLOW_AUTH_ADMIN_PASSWORD"
+
+export POSTGRES_HOST=localhost
 ```
 
 Makefile note: the default `make pull` / `make push` targets source from `../mlops-services` via `MLOPS_SERVICES_DIR`. If your repo layout differs, override it, e.g.:
@@ -155,7 +162,22 @@ Makefile equivalent:
 make pull
 ```
 
-### 2) Train + log to MLflow + register a model
+### 2) Build Feast offline store
+
+Training reads features from Feast's offline store (Postgres), so populate it first:
+
+```bash
+uv run feast -c feature_repo apply
+uv run python scripts/store_features.py --config configs/dev.yaml
+```
+
+Makefile equivalent:
+
+```bash
+make features
+```
+
+### 3) Train + log to MLflow + register a model
 
 ```bash
 uv run python src/train.py --config configs/dev.yaml
@@ -190,12 +212,18 @@ What to look for in MLflow (Artifacts → `eval/`):
 CI runs:
 
 - `uv run dvc pull`
+- `uv run feast -c feature_repo apply`
+- `uv run python scripts/store_features.py --config configs/ci.yaml`
 - `uv run python src/train.py --config configs/ci.yaml`
 
 GitLab CI/CD variables required (masked/protected):
 
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_HOST`
+- `POSTGRES_PORT`
 - optionally `AWS_DEFAULT_REGION`
 - optional `MLFLOW_TRACKING_URI` (overrides config)
 - optional `MLFLOW_EXPERIMENT_NAME` (overrides config)

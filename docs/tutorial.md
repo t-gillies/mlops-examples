@@ -3,11 +3,12 @@
 This tutorial walks through a repeatable workflow:
 1. Create a new branch
 2. Create a new DVC data version
-3. Train and register a model
-4. Commit the change
+3. Store features
+4. Train and register a model
+5. Commit the change
 5. Repeat to show reproducibility and change tracking
 
-It assumes you are using `mlops-services` locally (MLflow + RustFS).
+It assumes you are using `mlops-services` locally (MLflow + RustFS + Postgres).
 
 ---
 
@@ -17,15 +18,6 @@ It assumes you are using `mlops-services` locally (MLflow + RustFS).
 - Git
 - `mlops-services` running locally
 
-If you need to set credentials from `mlops-services`:
-```bash
-set -a
-source ../mlops-services/env/config.env
-source ../mlops-services/env/secrets.env
-set +a
-export AWS_ACCESS_KEY_ID="$RUSTFS_ACCESS_KEY"
-export AWS_SECRET_ACCESS_KEY="$RUSTFS_SECRET_KEY"
-```
 
 If your repo layout differs, set the path for Make:
 ```bash
@@ -44,7 +36,7 @@ If you already did this, you can skip it. Use `uv run ...` for all commands.
 
 ---
 
-## Step 0: Start Services
+## Step 0: Start Services & Set Credentials
 In another terminal:
 ```bash
 cd ../mlops-services
@@ -52,8 +44,25 @@ make up
 ```
 
 Verify:
-- MLflow UI: `http://localhost:5000`
-- RustFS S3: `http://localhost:9000`
+- MLflow UI: 'http://localhost/mlflow'
+- RustFS S3: 'http://localhost:9000'
+
+Set credentials from `mlops-services`:
+
+```bash
+set -a
+source ../mlops-services/env/config.env
+source ../mlops-services/env/secrets.env
+set +a
+
+export AWS_ACCESS_KEY_ID="$RUSTFS_ACCESS_KEY"
+export AWS_SECRET_ACCESS_KEY="$RUSTFS_SECRET_KEY"
+
+export MLFLOW_TRACKING_USERNAME="$MLFLOW_AUTH_ADMIN_USERNAME"
+export MLFLOW_TRACKING_PASSWORD="$MLFLOW_AUTH_ADMIN_PASSWORD"
+
+export POSTGRES_HOST=localhost
+```
 
 ---
 
@@ -78,7 +87,21 @@ make push
 
 ---
 
-## Step 3: Train + Register a Model
+## Step 3: Configure Feast Feature Store
+Training pulls features from the Feast offline store (Postgres), so ensure
+`mlops-services` is running and Postgres is reachable.
+
+Apply the Feast definitions:
+```bash
+make features
+```
+
+Training uses the FeatureService `patient_features`. Re-run `feast apply` if
+you change feature definitions.
+
+---
+
+## Step 4: Train + Register a Model
 ```bash
 make train
 ```
@@ -97,7 +120,7 @@ Artifacts in `eval/`:
 
 ---
 
-## Step 4: Try a Few Hyperparameter Variations
+## Step 5: Try a Few Hyperparameter Variations
 To see performance shifts, change a few Random Forest hyperparameters and re-run training.
 
 Edit `configs/dev.yaml` and try combinations like:
@@ -120,7 +143,7 @@ Repeat a couple of times to get a feel for how model capacity affects performanc
 
 ---
 
-## Step 5: Create + Train on a New Data Version
+## Step 6: Create + Train on a New Data Version
 This appends one synthetic row based on per‑class mean/stddev. The random seed is derived from the current dataset hash, so the new row is deterministic for the current dataset.
 `data/breast_cancer.appended` is a local guard file used to prevent multiple appends per commit; it is intentionally not tracked.
 
@@ -135,7 +158,7 @@ make train
 
 ---
 
-## Step 6: Repeat the Data-Version Process
+## Step 7: Repeat the Data-Version Process
 Run the same steps to generate a new data version and compare results.
 
 ```bash
@@ -153,7 +176,7 @@ In MLflow, compare the two runs:
 
 ---
 
-## Step 7: Reproduce a Registry Model Version
+## Step 8: Reproduce a Registry Model Version
 To reproduce a registered model:
 
 1) In MLflow Registry, open the model version and click the run.
@@ -175,7 +198,7 @@ You should get matching metrics and the same artifacts for that run.
 
 ---
 
-## Step 8: MLflow Features to Explore
+## Step 9: MLflow Features to Explore
 Use the MLflow UI to practice core workflows:
 
 1) Compare runs
@@ -197,7 +220,7 @@ Use the MLflow UI to practice core workflows:
 
 ---
 
-## Step 9: Cleanup (Optional)
+## Step 10: Cleanup (Optional)
 ```bash
 git checkout main
 git branch -D demo/repro-1

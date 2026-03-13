@@ -28,10 +28,13 @@ def _resolve_mlflow_config(cfg: dict[str, Any]) -> dict[str, str]:
     - ``MLFLOW_MODEL_STAGE``
     """
     mlflow_cfg = cfg["mlflow"]
+    tracking_uri = os.environ.get(
+        "MLFLOW_TRACKING_URI", mlflow_cfg["tracking_uri"]
+    )
+    # Allow ${VAR} placeholders in YAML or env overrides.
+    tracking_uri = os.path.expandvars(tracking_uri)
     return {
-        "tracking_uri": os.environ.get(
-            "MLFLOW_TRACKING_URI", mlflow_cfg["tracking_uri"]
-        ),
+        "tracking_uri": tracking_uri,
         "experiment_name": os.environ.get(
             "MLFLOW_EXPERIMENT_NAME", mlflow_cfg["experiment_name"]
         ),
@@ -109,7 +112,7 @@ def log_run(
 
         model_info = mlflow.sklearn.log_model(
             sk_model=model,
-            artifact_path="model",
+            artifact_path=registered_model_name,
             signature=signature,
             input_example=input_example,
             registered_model_name=registered_model_name,

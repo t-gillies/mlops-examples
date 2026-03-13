@@ -11,6 +11,9 @@ dependencies = [
   "pandas>=2.0",
   "pyyaml>=6.0",
   "matplotlib>=3.7",
+  "feast[postgres]>=0.58.0",
+  "pydantic<2.12",
+  "protobuf<5",
 ]
 
 [build-system]
