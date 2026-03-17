@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import load_breast_cancer
 
-MARKER_PATH = Path("data/breast_cancer.appended")
+MARKER_PATH = Path("data/raw/breast_cancer.appended")
 
 
 def get_git_sha() -> str | None:
@@ -34,7 +34,7 @@ def append_one_row(
     data_path: Path, seed_mode: str, seed: int | None
 ) -> None:
     if not data_path.exists():
-        raise FileNotFoundError(f"Dataset not found at {data_path}. Run `make data` first.")
+        raise FileNotFoundError(f"Dataset not found at {data_path}. Run `make extract` first.")
 
     git_sha = get_git_sha()
     if git_sha:
@@ -104,7 +104,7 @@ def main(out_path: str, append_row: bool, seed_mode: str, seed: int | None) -> N
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default="data/breast_cancer.csv")
+    parser.add_argument("--out", default="data/raw/breast_cancer.csv")
     parser.add_argument("--append-row", action="store_true")
     parser.add_argument("--seed-mode", choices=["hash", "seed"], default="hash")
     parser.add_argument("--seed", type=int, default=None)

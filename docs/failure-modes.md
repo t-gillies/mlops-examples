@@ -52,13 +52,13 @@ make pull-host
 Break it:
 ```bash
 export POSTGRES_HOST="bad-host"
-make features-docker
+make load-docker
 ```
 
 Fix it:
 ```bash
 unset POSTGRES_HOST
-make features-docker
+make load-docker
 ```
 
 ### What to observe

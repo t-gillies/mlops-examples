@@ -10,10 +10,9 @@ from sqlalchemy import create_engine
 def main(config_path: str) -> None:
     cfg = yaml.safe_load(Path(config_path).read_text())
 
-    data_path = Path(cfg["data"]["path"])
-    feast_repo = Path(cfg["features"]["feast_repo"])
+    processed_data_path = Path(cfg["data"]["processed_path"])
 
-    df = pd.read_csv(data_path)
+    df = pd.read_csv(processed_data_path)
     if "target" not in df.columns:
         raise ValueError("Dataset must include a 'target' column.")
 
@@ -33,7 +32,7 @@ def main(config_path: str) -> None:
     features_df.to_sql("features_df", con=engine, schema="public", if_exists="replace", index=False)
     target_df.to_sql("target_df", con=engine, schema="public", if_exists="replace", index=False)
 
-    print("Wrote features to offline store:")
+    print("Loaded features to offline store:")
     print("  tables: public.features_df, public.target_df")
 
 

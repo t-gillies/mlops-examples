@@ -1,11 +1,11 @@
-.PHONY: help setup lock data data-append pull push pull-host push-host pull-docker push-docker runner-build features train features-docker train-docker
+.PHONY: help setup lock data data-append pull push pull-host push-host pull-docker push-docker runner-build features train load-docker train-docker
 
 help:
 	@echo "Make targets:"
 	@echo "  make setup         Create virtual environment and install dependencies"
 	@echo "  make lock          Refresh uv.lock"
-	@echo "  make data          Generate deterministic dataset and track with DVC"
-	@echo "  make data-append   Append one row to dataset and track with DVC"
+	@echo "  make extract          Generate deterministic dataset and track with DVC"
+	@echo "  make extract-append   Append one row to dataset and track with DVC"
 	@echo "  make pull          Pull DVC data inside docker using the internal RustFS service"
 	@echo "  make push          Push DVC data inside docker using the internal RustFS service"
 	@echo "  make pull-host     Host-based DVC pull if a direct S3 endpoint is reachable"
@@ -13,9 +13,10 @@ help:
 	@echo "  make pull-docker   Alias for make pull"
 	@echo "  make push-docker   Alias for make push"
 	@echo "  make runner-build  Build/update the docker runner image"
-	@echo "  make features      Host-based Feast workflow (requires direct Postgres access)"
+	@echo "  make transform      Transform raw data into processed data and track with DVC"
+	@echo "  make load      Host-based Feast workflow (requires direct Postgres access)"
 	@echo "  make train         Host-based training workflow (requires direct Postgres access)"
-	@echo "  make features-docker  Apply Feast + load offline features inside docker"
+	@echo "  make load-docker  Apply Feast + load offline features inside docker"
 	@echo "  make train-docker     Train inside docker on the shared mlops network"
 	@echo "  Variables: TRAIN_CONFIG=configs/dev.yaml MLOPS_SERVICES_DIR=../mlops-services"
 
@@ -47,6 +48,10 @@ define RUNNER_WITH_ENV
 	if [ -f "$$CONFIG_ENV" ]; then set -a; source "$$CONFIG_ENV"; set +a; fi; \
 	if [ -f "$$SECRETS_ENV" ]; then set -a; source "$$SECRETS_ENV"; set +a; fi; \
 	if [ -f "$$USER_ENV" ]; then set -a; source "$$USER_ENV"; set +a; fi; \
+	case "$${POSTGRES_HOST:-}" in \
+	  "" ) export POSTGRES_HOST="mlflow-postgres" ;; \
+	  127.0.0.1|localhost|0.0.0.0 ) export POSTGRES_HOST="mlflow-postgres" ;; \
+	esac; \
 	: "$${POSTGRES_USER:?Set POSTGRES_USER in your shell or mlops-services env}"; \
 	: "$${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your shell or mlops-services env}"; \
 	: "$${MLFLOW_TRACKING_USERNAME:?Set MLFLOW_TRACKING_USERNAME in your shell or .env.user}"; \
@@ -74,13 +79,13 @@ setup:
 lock:
 	uv lock
 
-data:
-	uv run python scripts/make_data.py --out data/breast_cancer.csv
-	uv run dvc add data/breast_cancer.csv
+extract:
+	uv run python scripts/extract.py --out data/raw/breast_cancer.csv
+	uv run dvc add data/raw/breast_cancer.csv
 
-data-append:
-	uv run python scripts/make_data.py --append-row --out data/breast_cancer.csv
-	uv run dvc add data/breast_cancer.csv
+extract-append:
+	uv run python scripts/extract.py --append-row --out data/raw/breast_cancer.csv
+	uv run dvc add data/raw/breast_cancer.csv
 
 pull:
 	$(call DVC_DOCKER_WITH_ENV,pull)
@@ -103,16 +108,20 @@ push-docker:
 runner-build:
 	$(call RUNNER_WITH_ENV,build runner)
 
-features:
+transform:
+	uv run python scripts/transform.py --input data/raw/breast_cancer.csv --output data/processed/breast_cancer_transformed.csv
+	uv run dvc add data/processed/breast_cancer_transformed.csv
+
+load:
 	uv run feast -c feature_repo apply
-	uv run python scripts/store_features.py --config $(TRAIN_CONFIG)
+	uv run python scripts/load.py --config $(TRAIN_CONFIG)
 
 train:
 	uv run python src/train.py --config $(TRAIN_CONFIG)
 
-features-docker:
+load-docker:
 	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_FEAST) -c feature_repo apply)
-	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) scripts/store_features.py --config $(TRAIN_CONFIG))
+	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) scripts/load.py --config $(TRAIN_CONFIG))
 
 train-docker:
 	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) src/train.py --config $(TRAIN_CONFIG))

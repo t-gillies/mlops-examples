@@ -14,7 +14,7 @@ The pipeline mirrors local steps:
 The pipeline now uses the same Make targets as local development:
 - `make runner-build`
 - `make pull`
-- `make features-docker TRAIN_CONFIG=configs/ci.yaml`
+- `make load-docker TRAIN_CONFIG=configs/ci.yaml`
 - `make train-docker TRAIN_CONFIG=configs/ci.yaml`
 
 `TRAIN_CONFIG` is set as a CI job variable, so only the feature-store and training targets need it.

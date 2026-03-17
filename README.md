@@ -47,8 +47,8 @@ Run `make help` to see the command list in your terminal.
 
 - `make setup`: Create `.venv` and install dependencies via `uv sync`
 - `make lock`: Refresh `uv.lock`
-- `make data`: Generate deterministic dataset and track it with DVC
-- `make data-append`: Append one row to the dataset and track it with DVC
+- `make extract`: Generate deterministic dataset and track it with DVC
+- `make extract-append`: Append one row to the dataset and track it with DVC
 - `make pull`: Recommended DVC pull behind the shared runner/container workflow
 - `make push`: Recommended DVC push behind the shared runner/container workflow
 - `make pull-host`: Host-based DVC pull if a direct S3 endpoint is reachable
@@ -56,9 +56,10 @@ Run `make help` to see the command list in your terminal.
 - `make pull-docker`: Alias for `make pull`
 - `make push-docker`: Alias for `make push`
 - `make runner-build`: Build/update the runner image used for dockerized jobs
-- `make features-docker`: Apply Feast definitions and load features into Postgres from the runner container
+- `make transform`: Transform the raw dataset into processed data
+- `make load-docker`: Apply Feast definitions and load features into Postgres from the runner container
 - `make train-docker`: Train and log with `configs/dev.yaml` from the runner container
-- `make features`: Host-based Feast workflow if Postgres is reachable directly from your machine
+- `make load`: Host-based Feast workflow if Postgres is reachable directly from your machine
 - `make train`: Host-based training workflow if Postgres is reachable directly from your machine
 
 ---
@@ -106,7 +107,7 @@ export AWS_SECRET_ACCESS_KEY="..."
 export AWS_DEFAULT_REGION="us-east-1"
 ```
 
-`make pull` / `make push` only need RustFS credentials. MLflow credentials are only required for `make features-docker` and `make train-docker`.
+`make pull` / `make push` only need RustFS credentials. MLflow credentials are only required for `make load-docker` and `make train-docker`.
 
 If you’re using `mlops-services`, the default DVC targets already load the RustFS credentials from:
 
@@ -144,7 +145,7 @@ The docker-based Make targets automatically load:
 - `../mlops-services/env/secrets.env`
 - `.env.user` if present
 
-Host-based `make features` / `make train` do not source those files automatically. If you use the host fallback, export the needed values yourself, or set `MLFLOW_TRACKING_URI` and the Postgres connection variables explicitly in your shell first.
+Host-based `make load` / `make train` do not source those files automatically. If you use the host fallback, export the needed values yourself, or set `MLFLOW_TRACKING_URI` and the Postgres connection variables explicitly in your shell first.
 
 ---
 
@@ -153,9 +154,9 @@ Host-based `make features` / `make train` do not source those files automaticall
 This project uses a deterministic Breast Cancer CSV to demonstrate DVC.
 
 ```bash
-uv run python scripts/make_data.py --out data/breast_cancer.csv
-uv run dvc add data/breast_cancer.csv
-git add data/breast_cancer.csv.dvc .dvc/.gitignore
+uv run python scripts/extract.py --out data/raw/breast_cancer.csv
+uv run dvc add data/raw/breast_cancer.csv
+git add data/raw/breast_cancer.csv.dvc .dvc/.gitignore
 git commit -m "Track breast_cancer.csv with DVC"
 make push
 ```
@@ -165,8 +166,8 @@ If you’ve already run the one-time setup, just use `uv run ...` — no activat
 Makefile equivalent:
 
 ```bash
-make data
-git add data/breast_cancer.csv.dvc .dvc/.gitignore
+make extract
+git add data/raw/breast_cancer.csv.dvc .dvc/.gitignore
 git commit -m "Track breast_cancer.csv with DVC"
 make push
 ```
@@ -183,25 +184,31 @@ After this, others can run `make pull` to fetch the dataset from RustFS with the
 make pull
 ```
 
-### 2) Build Feast offline store
+### 2) Transform the dataset
+
+```bash
+make transform
+```
+
+### 3) Load features into the Feast offline store
 
 Training reads features from Feast's offline store in Postgres. With the current `mlops-services` architecture, the recommended workflow is to run Feast from the docker runner on the shared `mlops` network:
 
 ```bash
 make runner-build
-make features-docker
+make load-docker
 ```
 
 If you prefer to run Feast directly on the host and your Postgres instance is reachable from your machine, you can still use:
 
 ```bash
-make features
+make load
 ```
 
 Host fallback note:
-- `make features` expects the Postgres variables referenced by `configs/*.yaml` to already be exported in your shell, such as `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
+- `make load` expects the Postgres variables referenced by `configs/*.yaml` to already be exported in your shell, such as `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
 
-### 3) Train + log to MLflow + register a model
+### 4) Train + log to MLflow + register a model
 
 ```bash
 make train-docker
@@ -239,7 +246,7 @@ CI runs:
 
 - `make runner-build`
 - `make pull`
-- `make features-docker TRAIN_CONFIG=configs/ci.yaml`
+- `make load-docker TRAIN_CONFIG=configs/ci.yaml`
 - `make train-docker TRAIN_CONFIG=configs/ci.yaml`
 
 Runner requirement:
@@ -269,7 +276,7 @@ A) First successful run
 - [ ] Clone repo, install deps
 - [ ] Set MLflow creds
 - [ ] `make pull`
-- [ ] `make features-docker`
+- [ ] `make load-docker`
 - [ ] `make train-docker`
 - [ ] Find your run in MLflow UI and inspect:
   - params (n_estimators, max_depth, min_samples_leaf, max_features, seed)
@@ -280,7 +287,7 @@ B) Prove reproducibility
 - [ ] Note the run's `git_sha` and `data_sha256` tags in MLflow
 - [ ] Check out that exact git commit
 - [ ] `make pull`
-- [ ] Re-run `make features-docker` and `make train-docker`, then compare metrics
+- [ ] Re-run `make load-docker` and `make train-docker`, then compare metrics
 
 C) Make a controlled change
 - [ ] Change `n_estimators` or `max_depth` in `configs/dev.yaml`
@@ -288,13 +295,13 @@ C) Make a controlled change
 - [ ] Compare runs in MLflow (metrics shift, params differ)
 
 D) Data versioning exercise
-- [ ] Regenerate data (or add a tiny perturbation in `make_data.py` like shuffling rows)
-- [ ] `make data` (or `make data-append`)
-- [ ] `uv run dvc add data/breast_cancer.csv`, commit, `make push`
-- [ ] `make features-docker` then `make train-docker` and observe:
+- [ ] Regenerate data (or add a tiny perturbation in `extract.py` like shuffling rows)
+- [ ] `make extract` (or `make extract-append`)
+- [ ] `uv run dvc add data/raw/breast_cancer.csv`, commit, `make push`
+- [ ] `make load-docker` then `make train-docker` and observe:
   - new `data_sha256` tag
   - potential metric differences
-- [ ] Check out the previous commit, `make pull`, rerun `make features-docker` and `make train-docker`, and confirm you can reproduce the old run.
+- [ ] Check out the previous commit, `make pull`, rerun `make load-docker` and `make train-docker`, and confirm you can reproduce the old run.
 
 E) Registry exercise
 - [ ] Identify the latest registered model version

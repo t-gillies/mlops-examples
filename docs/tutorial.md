@@ -71,8 +71,8 @@ This generates the Breast Cancer dataset and tracks it with DVC.
 **Note:** Commit before training so the run's `git_sha` can reproduce the exact data version; push after commit so the remote data upload matches a recorded Git commit.
 
 ```bash
-make data
-git add data/breast_cancer.csv.dvc .dvc/.gitignore
+make extract
+git add data/raw/breast_cancer.csv.dvc .dvc/.gitignore
 git commit -m "Track breast_cancer dataset"
 make push
 ```
@@ -85,7 +85,7 @@ Training pulls features from the Feast offline store (Postgres). The recommended
 Apply the Feast definitions:
 ```bash
 make runner-build
-make features-docker
+make load-docker
 ```
 
 Training uses the FeatureService `patient_features`. Re-run `feast apply` if
@@ -138,15 +138,15 @@ Repeat a couple of times to get a feel for how model capacity affects performanc
 
 ## Step 6: Create + Train on a New Data Version
 This appends one synthetic row based on per‑class mean/stddev. The random seed is derived from the current dataset hash, so the new row is deterministic for the current dataset.
-`data/breast_cancer.appended` is a local guard file used to prevent multiple appends per commit; it is intentionally not tracked.
+`data/raw/breast_cancer.appended` is a local guard file used to prevent multiple appends per commit; it is intentionally not tracked.
 
 ```bash
-make data-append
+make extract-append
 git status --short
-git add data/breast_cancer.csv.dvc .dvc/.gitignore
+git add data/raw/breast_cancer.csv.dvc .dvc/.gitignore
 git commit -m "Add breast_cancer dataset version"
 make push
-make features-docker
+make load-docker
 make train-docker
 ```
 
@@ -156,11 +156,11 @@ make train-docker
 Run the same steps to generate a new data version and compare results.
 
 ```bash
-make data-append
-git add data/breast_cancer.csv.dvc .dvc/.gitignore
+make extract-append
+git add data/raw/breast_cancer.csv.dvc .dvc/.gitignore
 git commit -m "Update dataset version"
 make push
-make features-docker
+make load-docker
 make train-docker
 ```
 
@@ -185,7 +185,7 @@ To reproduce a registered model:
 ```bash
 git checkout <git_sha>
 make pull
-make features-docker
+make load-docker
 make train-docker
 ```
 

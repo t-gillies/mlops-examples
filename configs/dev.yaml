@@ -7,7 +7,8 @@ mlflow:
     pipeline: "mlops-examples"
 
 data:
-  path: "data/breast_cancer.csv"
+  raw_path: "data/raw/breast_cancer.csv"
+  processed_path: "data/processed/breast_cancer_transformed.csv"
 
 train:
   model_type: "rf"      
