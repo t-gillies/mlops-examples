@@ -14,3 +14,6 @@ data/breast_cancer.csv
 
 # Artifacts
 artifacts/
+
+#archive
+archive/

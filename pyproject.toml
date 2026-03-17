@@ -14,6 +14,11 @@ dependencies = [
   "feast[postgres]>=0.58.0",
   "pydantic<2.12",
   "protobuf<5",
+  "torch>=2.10.0",
+  "torchvision>=0.25.0",
+  "pillow>=12.1.0",
+  "tqdm>=4.67.3",
+  "numpy>=2.4.2",
 ]
 
 [build-system]
