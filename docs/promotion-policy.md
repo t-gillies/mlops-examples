@@ -13,7 +13,7 @@ Teams may also add **custom tags or aliases** (e.g., `candidate`, `champion`, `c
 ## How a system uses the policy
 In a real system, the policy is enforced by a combination of automation and human approval:
 
-- **Training pipeline** logs a run and registers a model version.
+- **Pipeline log step** logs a run and registers a model version after train/eval artifacts are ready.
 - **Validation checks** (CI or scheduled jobs) evaluate metrics and artifacts.
 - **Approval step** records a decision to promote or reject.
 - **Deployment system** pulls the model version from the Registry based on stage or alias.
@@ -23,8 +23,8 @@ In practice, “promotion” is how the system knows what to serve in an environ
 - `Production` is the default model used by the live service.
 
 ## Staging criteria
-- `val_roc_auc` above a defined threshold (e.g., 0.97)
-- No obvious regressions in `val_precision` / `val_recall`
+- `test_roc_auc` above a defined threshold (e.g., 0.97)
+- No obvious regressions in `test_precision` / `test_recall`
 - Artifacts (confusion matrix, ROC/PR curves) look reasonable
 
 ## Promotion steps

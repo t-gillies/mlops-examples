@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.datasets import load_breast_cancer
+from src.utils import sha256_file
 
 MARKER_PATH = Path("data/raw/breast_cancer.appended")
 
@@ -15,14 +16,6 @@ def get_git_sha() -> str | None:
         return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     except Exception:
         return None
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def seed_from_hash(path: Path) -> int:

@@ -4,20 +4,23 @@ The pipeline mirrors local steps:
 
 1) **Pull data with DVC**
    - Fetches the version referenced in the repo from the docker runner on the shared network.
-2) **Build Feast offline store (if using Feast)**
+2) **Build Feast offline store**
    - Runs the dockerized Feast workflow to populate Postgres tables from the shared `mlops` network.
-3) **Train the model**
+3) **Create train/val/test splits**
+   - Uses Feast offline features and writes split artifacts.
+4) **Train the model**
    - Uses the runner container with `configs/ci.yaml`.
-4) **Log to MLflow**
-   - Metrics, artifacts, and model registration happen the same as local.
+
+The checked-in CI job currently focuses on the dockerized training path. Evaluation and MLflow logging remain available as local workflow steps.
 
 The pipeline now uses the same Make targets as local development:
 - `make runner-build`
 - `make pull`
 - `make load-docker TRAIN_CONFIG=configs/ci.yaml`
+- `make split-docker TRAIN_CONFIG=configs/ci.yaml`
 - `make train-docker TRAIN_CONFIG=configs/ci.yaml`
 
-`TRAIN_CONFIG` is set as a CI job variable, so only the feature-store and training targets need it.
+`TRAIN_CONFIG` is set as a CI job variable so the dockerized feature-load, split, and train steps all use the CI-specific config.
 
 ## Why this matters
 CI ensures your pipeline is reproducible in a clean environment.

@@ -13,13 +13,6 @@ def sha256_file(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-def sha256_df(df: pd.DataFrame) -> str:
-    # Stable hash across runs: sort columns, reset index, hash rows
-    normalized = df.sort_index(axis=1).reset_index(drop=True)
-    row_hashes = pd.util.hash_pandas_object(normalized, index=False).to_numpy()
-    h = hashlib.sha256()
-    h.update(row_hashes.tobytes())
-    return h.hexdigest()
 
 def get_git_sha() -> str:
     """Return the current Git commit SHA.

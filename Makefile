@@ -15,9 +15,14 @@ help:
 	@echo "  make runner-build  Build/update the docker runner image"
 	@echo "  make transform      Transform raw data into processed data and track with DVC"
 	@echo "  make load      Host-based Feast workflow (requires direct Postgres access)"
+	@echo "  make split      Split data into train/val/test sets"
 	@echo "  make train         Host-based training workflow (requires direct Postgres access)"
 	@echo "  make load-docker  Apply Feast + load offline features inside docker"
 	@echo "  make train-docker     Train inside docker on the shared mlops network"
+	@echo "  make eval          Run model evaluation and locally create metrics/plots artifacts"
+	@echo "  make log           Log training metrics to MLFlow"
+	@echo "  make pipeline          Run the full pipeline end-to-end (except for setup and lock)"
+
 	@echo "  Variables: TRAIN_CONFIG=configs/dev.yaml MLOPS_SERVICES_DIR=../mlops-services"
 
 MLOPS_SERVICES_DIR ?= ../mlops-services
@@ -72,6 +77,12 @@ define DVC_DOCKER_WITH_ENV
 	$(RUNNER_COMPOSE) run --rm runner sh -lc '"'"'trap "rm -f .dvc/config.local" EXIT; $(RUNNER_DVC) remote modify --local rustfs endpointurl http://mlflow-rustfs:9000 >/dev/null; $(RUNNER_DVC) $(1)'"'"''
 endef
 
+define banner
+	@printf '\n============================================================\n'
+	@printf ' %s\n' "$(1)"
+	@printf '============================================================\n'
+endef
+
 setup:
 	uv venv
 	uv sync
@@ -109,19 +120,53 @@ runner-build:
 	$(call RUNNER_WITH_ENV,build runner)
 
 transform:
-	uv run python scripts/transform.py --input data/raw/breast_cancer.csv --output data/processed/breast_cancer_transformed.csv
+	uv run python scripts/transform.py
 	uv run dvc add data/processed/breast_cancer_transformed.csv
 
 load:
 	uv run feast -c feature_repo apply
 	uv run python scripts/load.py --config $(TRAIN_CONFIG)
 
+split:
+	uv run python scripts/split.py --config $(TRAIN_CONFIG)
+
+split-docker:
+	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) scripts/split.py --config $(TRAIN_CONFIG))
+
 train:
-	uv run python src/train.py --config $(TRAIN_CONFIG)
+	uv run python scripts/train.py --config $(TRAIN_CONFIG)
 
 load-docker:
 	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_FEAST) -c feature_repo apply)
 	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) scripts/load.py --config $(TRAIN_CONFIG))
 
 train-docker:
-	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) src/train.py --config $(TRAIN_CONFIG))
+	$(call RUNNER_WITH_ENV,run --rm runner $(RUNNER_PYTHON) scripts/train.py --config $(TRAIN_CONFIG))
+
+eval:
+	uv run python scripts/eval.py
+
+log:
+	uv run python scripts/log.py --config $(TRAIN_CONFIG)
+
+pipeline:
+	$(call banner,STEP 1: CREATE ENV)
+	make setup
+	$(call banner,STEP 2: EXTRACT DATA)
+	make extract
+	$(call banner,STEP 3: PUSH DATA)
+	make push
+	$(call banner,STEP 4: PULL DATA)
+	make pull
+	$(call banner,STEP 5: TRANSFORM DATA)
+	make transform
+	$(call banner,STEP 6: LOAD DATA)
+	make load-docker
+	$(call banner,STEP 7: SPLIT DATA)
+	make split-docker
+	$(call banner,STEP 8: TRAIN MODEL)
+	make train
+	$(call banner,STEP 9: EVALUATE MODEL)
+	make eval
+	$(call banner,STEP 10: LOG RESULTS)
+	make log

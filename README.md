@@ -58,9 +58,14 @@ Run `make help` to see the command list in your terminal.
 - `make runner-build`: Build/update the runner image used for dockerized jobs
 - `make transform`: Transform the raw dataset into processed data
 - `make load-docker`: Apply Feast definitions and load features into Postgres from the runner container
-- `make train-docker`: Train and log with `configs/dev.yaml` from the runner container
+- `make split-docker`: Build train/val/test splits from Feast offline features inside the runner container
+- `make train-docker`: Train with `configs/dev.yaml` from the runner/container workflow
 - `make load`: Host-based Feast workflow if Postgres is reachable directly from your machine
+- `make split`: Host-based split workflow if Postgres is reachable directly from your machine
 - `make train`: Host-based training workflow if Postgres is reachable directly from your machine
+- `make eval`: Generate local evaluation metrics and plots under `artifacts/metrics`
+- `make log`: Log params, metrics, artifacts, and the trained model to MLflow
+- `make pipeline`: Run the full pipeline end-to-end
 
 ---
 
@@ -178,13 +183,27 @@ After this, others can run `make pull` to fetch the dataset from RustFS with the
 
 ## Run locally (developer workflow)
 
+The incorporated pipeline now follows this sequence:
+
+```text
+make pull -> make transform -> make load-docker -> make split-docker -> make train -> make eval -> make log
+```
+
+If you want the entire workflow in one go, use:
+
+```bash
+make pipeline
+```
+
+`make pipeline` runs the complete pipeline end-to-end, including environment setup, DVC sync, feature loading, splitting, training, evaluation, and MLflow logging.
+
 ### 1) Get the dataset
 
 ```bash
 make pull
 ```
 
-### 2) Transform the dataset
+### 2) Process the dataset
 
 ```bash
 make transform
@@ -208,7 +227,25 @@ make load
 Host fallback note:
 - `make load` expects the Postgres variables referenced by `configs/*.yaml` to already be exported in your shell, such as `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
 
-### 4) Train + log to MLflow + register a model
+### 4) Create train/validation/test splits from Feast features
+
+The split step materializes `train.csv`, `val.csv`, and `test.csv` under `data/processed/splits/`.
+
+Recommended dockerized workflow:
+
+```bash
+make split-docker
+```
+
+If Postgres is reachable directly from your machine, the host-based fallback remains available:
+
+```bash
+make split
+```
+
+### 5) Train the model
+
+The current incorporated pipeline separates training from evaluation and MLflow logging. Training writes the serialized model to `artifacts/model/model.pkl`.
 
 ```bash
 make train-docker
@@ -223,15 +260,28 @@ make train
 Host fallback note:
 - `make train` also expects the MLflow connection values to already be exported in your shell, either through `MLFLOW_TRACKING_URI` or through `PUBLIC_FQDN` + `MLFLOW_BASE_PATH`, plus your `MLFLOW_TRACKING_USERNAME` / `MLFLOW_TRACKING_PASSWORD`.
 
+### 6) Evaluate and locally generate metrics/plots artifacts
+
+```bash
+make eval
+```
+
+This writes metrics and plots to `artifacts/metrics/`.
+
+### 7) Log to MLflow
+
+```bash
+make log
+```
+
 Open MLflow UI and verify:
 
 - Experiment exists (`mlops-examples/dev`)
-- A run has params + metrics + eval artifacts
+- A run has params + metrics + evaluation artifacts
 - A model is registered (`MLOpsExamples_BreastCancer_RF`)
-- Stage promotion (if enabled) is set (e.g. `Staging` -> latest version)
-- Run tags include `git_sha`, `data_sha256`, and `feature_sha256`
+- Run tags include `git_sha`, `raw_data_sha256`, and `processed_data_sha256`
 
-What to look for in MLflow (Artifacts → `eval/`):
+What to look for in MLflow (Artifacts → `metrics/`):
 - `metrics.json`: all metrics in one file
 - `confusion_matrix.png`: class‑level error breakdown
 - `roc_curve.png`: overall separability (AUC in metrics)
@@ -247,6 +297,7 @@ CI runs:
 - `make runner-build`
 - `make pull`
 - `make load-docker TRAIN_CONFIG=configs/ci.yaml`
+- `make split-docker TRAIN_CONFIG=configs/ci.yaml`
 - `make train-docker TRAIN_CONFIG=configs/ci.yaml`
 
 Runner requirement:
@@ -276,32 +327,36 @@ A) First successful run
 - [ ] Clone repo, install deps
 - [ ] Set MLflow creds
 - [ ] `make pull`
+- [ ] `make transform`
 - [ ] `make load-docker`
-- [ ] `make train-docker`
+- [ ] `make split-docker`
+- [ ] `make train`
+- [ ] `make eval`
+- [ ] `make log`
 - [ ] Find your run in MLflow UI and inspect:
   - params (n_estimators, max_depth, min_samples_leaf, max_features, seed)
-  - metrics (val_accuracy, val_f1_macro, val_precision, val_recall, val_roc_auc, val_pr_auc)
+  - metrics (test_accuracy, test_f1_macro, test_precision, test_recall, test_roc_auc, test_pr_auc)
   - artifacts (metrics.json, confusion_matrix.png, roc_curve.png, pr_curve.png, feature_importance.png)
 
 B) Prove reproducibility
-- [ ] Note the run's `git_sha` and `data_sha256` tags in MLflow
+- [ ] Note the run's `git_sha` and data hash tags in MLflow
 - [ ] Check out that exact git commit
 - [ ] `make pull`
-- [ ] Re-run `make load-docker` and `make train-docker`, then compare metrics
+- [ ] Re-run `make transform`, `make load-docker`, `make split-docker`, `make train`, `make eval`, and `make log`, then compare metrics
 
 C) Make a controlled change
 - [ ] Change `n_estimators` or `max_depth` in `configs/dev.yaml`
-- [ ] Re-run `make train-docker`
+- [ ] Re-run `make train`, `make eval`, and `make log`
 - [ ] Compare runs in MLflow (metrics shift, params differ)
 
 D) Data versioning exercise
 - [ ] Regenerate data (or add a tiny perturbation in `extract.py` like shuffling rows)
 - [ ] `make extract` (or `make extract-append`)
 - [ ] `uv run dvc add data/raw/breast_cancer.csv`, commit, `make push`
-- [ ] `make load-docker` then `make train-docker` and observe:
-  - new `data_sha256` tag
+- [ ] `make transform`, `make load-docker`, `make split-docker`, `make train`, `make eval`, then `make log` and observe:
+  - new raw/processed data hash tags
   - potential metric differences
-- [ ] Check out the previous commit, `make pull`, rerun `make load-docker` and `make train-docker`, and confirm you can reproduce the old run.
+- [ ] Check out the previous commit, `make pull`, rerun the pipeline, and confirm you can reproduce the old run.
 
 E) Registry exercise
 - [ ] Identify the latest registered model version
@@ -315,8 +370,8 @@ E) Registry exercise
 
 - MLflow tags:
   - `git_sha`: source code version
-  - `data_sha256`: dataset content hash
-  - `feature_sha256`: hash of the Feast training dataframe used by the run
+  - `raw_data_sha256`: raw dataset content hash
+  - `processed_data_sha256`: processed dataset content hash
 - Buckets:
   - `dvc-remote` for DVC (created by `mlops-services` RustFS init)
   - `mlflow-artifacts` for MLflow server
