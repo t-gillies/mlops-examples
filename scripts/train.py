@@ -16,7 +16,6 @@ def main(config_path: str) -> None:
     model_dir.mkdir(parents=True, exist_ok=True)
 
     train_df = pd.read_csv(split_dir / "train.csv")
-    val_df = pd.read_csv(split_dir / "val.csv")
 
     X_train = train_df.drop(columns=["target", "event_timestamp", "patient_id"])
     y_train = train_df["target"]

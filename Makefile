@@ -72,9 +72,24 @@ define DVC_DOCKER_WITH_ENV
 	if [ -f "$$CONFIG_ENV" ]; then set -a; source "$$CONFIG_ENV"; set +a; fi; \
 	if [ -f "$$SECRETS_ENV" ]; then set -a; source "$$SECRETS_ENV"; set +a; fi; \
 	if [ -f "$$USER_ENV" ]; then set -a; source "$$USER_ENV"; set +a; fi; \
+	export AWS_ACCESS_KEY_ID="$${AWS_ACCESS_KEY_ID:-$${RUSTFS_ACCESS_KEY:-}}"; \
+	export AWS_SECRET_ACCESS_KEY="$${AWS_SECRET_ACCESS_KEY:-$${RUSTFS_SECRET_KEY:-}}"; \
 	: "$${AWS_ACCESS_KEY_ID:?Set AWS_ACCESS_KEY_ID or provide RUSTFS_ACCESS_KEY via mlops-services env}"; \
 	: "$${AWS_SECRET_ACCESS_KEY:?Set AWS_SECRET_ACCESS_KEY or provide RUSTFS_SECRET_KEY via mlops-services env}"; \
 	$(RUNNER_COMPOSE) run --rm runner sh -lc '"'"'trap "rm -f .dvc/config.local" EXIT; $(RUNNER_DVC) remote modify --local rustfs endpointurl http://mlflow-rustfs:9000 >/dev/null; $(RUNNER_DVC) $(1)'"'"''
+endef
+
+define LOG_WITH_ENV
+	/bin/bash -lc 'set -euo pipefail; \
+	CONFIG_ENV="$(MLOPS_SERVICES_DIR)/env/config.env"; \
+	SECRETS_ENV="$(MLOPS_SERVICES_DIR)/env/secrets.env"; \
+	USER_ENV=".env.user"; \
+	if [ -f "$$CONFIG_ENV" ]; then set -a; source "$$CONFIG_ENV"; set +a; fi; \
+	if [ -f "$$SECRETS_ENV" ]; then set -a; source "$$SECRETS_ENV"; set +a; fi; \
+	if [ -f "$$USER_ENV" ]; then set -a; source "$$USER_ENV"; set +a; fi; \
+	: "$${MLFLOW_TRACKING_USERNAME:?Set MLFLOW_TRACKING_USERNAME in your shell or .env.user}"; \
+	: "$${MLFLOW_TRACKING_PASSWORD:?Set MLFLOW_TRACKING_PASSWORD in your shell or .env.user}"; \
+	uv run python scripts/log.py --config $(TRAIN_CONFIG)'
 endef
 
 define banner
@@ -147,7 +162,7 @@ eval:
 	uv run python scripts/eval.py
 
 log:
-	uv run python scripts/log.py --config $(TRAIN_CONFIG)
+	$(call LOG_WITH_ENV)
 
 pipeline:
 	$(call banner,STEP 1: CREATE ENV)
