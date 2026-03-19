@@ -29,16 +29,16 @@ def compute_metrics(
     Returns
     -------
     dict
-        Keys: ``val_accuracy``, ``val_f1_macro``, ``val_precision``,
-        ``val_recall``, ``val_roc_auc``, ``val_pr_auc``.
+        Keys: ``test_accuracy``, ``test_f1_macro``, ``test_precision``,
+        ``test_recall``, ``test_roc_auc``, ``test_pr_auc``.
     """
     return {
-        "val_accuracy": accuracy_score(y_true, y_pred),
-        "val_f1_macro": f1_score(y_true, y_pred, average="macro"),
-        "val_precision": precision_score(y_true, y_pred),
-        "val_recall": recall_score(y_true, y_pred),
-        "val_roc_auc": roc_auc_score(y_true, y_proba),
-        "val_pr_auc": average_precision_score(y_true, y_proba),
+        "test_accuracy": accuracy_score(y_true, y_pred),
+        "test_f1_macro": f1_score(y_true, y_pred, average="macro"),
+        "test_precision": precision_score(y_true, y_pred),
+        "test_recall": recall_score(y_true, y_pred),
+        "test_roc_auc": roc_auc_score(y_true, y_proba),
+        "test_pr_auc": average_precision_score(y_true, y_proba),
     }
 
 

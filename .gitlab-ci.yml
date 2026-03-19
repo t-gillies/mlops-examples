@@ -10,7 +10,8 @@ train_golden_path:
   script:
     - make runner-build
     - make pull
-    - make features-docker
+    - make load-docker
+    - make split-docker
     - make train-docker
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"

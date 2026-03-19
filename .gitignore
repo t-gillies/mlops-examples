@@ -12,8 +12,9 @@ __pycache__/
 .dvc/config.local
 
 # Data (we will track via DVC)
-data/breast_cancer.csv
-data/breast_cancer.appended
+data/raw/breast_cancer.csv
+data/raw/breast_cancer_transformed.csv
+data/raw/breast_cancer.appended
 
 # Artifacts
 artifacts/

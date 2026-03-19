@@ -20,13 +20,13 @@ make pull
 Break it:
 ```bash
 export PUBLIC_FQDN="localhost:5999"
-make train-docker
+make log
 ```
 
 Fix it:
 ```bash
 unset PUBLIC_FQDN
-make train-docker
+make log
 ```
 
 ## 3) DVC remote endpoint misconfigured
@@ -52,16 +52,16 @@ make pull-host
 Break it:
 ```bash
 export POSTGRES_HOST="bad-host"
-make features-docker
+make load-docker
 ```
 
 Fix it:
 ```bash
 unset POSTGRES_HOST
-make features-docker
+make load-docker
 ```
 
 ### What to observe
 - Errors should point to credentials or network connectivity.
-- DVC, Feast, and training normally run from the docker runner on the shared `mlops` network.
+- DVC and Feast run from the docker runner on the shared `mlops` network, while evaluation and MLflow logging happen in separate local steps.
 - Ensure fixes are done via env vars or config, not by editing code.
