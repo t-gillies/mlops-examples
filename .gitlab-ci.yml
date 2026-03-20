@@ -1,7 +1,19 @@
-stages: [train]
+stages: [test, train]
+
+unit_tests:
+  stage: test
+  variables:
+    MLOPS_NETWORK: "mlops"
+  script:
+    - make runner-build
+    - make test-docker
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
 
 train_golden_path:
   stage: train
+  needs: ["unit_tests"]
   variables:
     MLOPS_NETWORK: "mlops"
     PUBLIC_FQDN: "mlops-nginx"
@@ -10,7 +22,7 @@ train_golden_path:
   script:
     - make runner-build
     - make pull
-    - make load-docker
+    - make snapshot-docker
     - make split-docker
     - make train-docker
   rules:
