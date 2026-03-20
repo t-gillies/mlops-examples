@@ -26,8 +26,10 @@ train:
   max_features: "sqrt"
 
 features:
-  feast_repo: "feature_repo"
-  offline_store_uri: "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/feast"
+  feature_store_path: "feature_store"
+  feature_service_name: "patient_features"
+  snapshot_dir: "data/features/current"
+  manifest_path: "data/features/current/manifest.json"
 
 artifacts:
   out_dir: "artifacts"

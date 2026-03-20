@@ -9,10 +9,11 @@ from airflow.providers.docker.operators.docker import DockerOperator
 from docker.types import Mount
 
 
-REPO_HOST_DIR = os.environ.get(
-    "MLOPS_EXAMPLES_HOST_DIR",
-    "/home/trevi/projects/mlops-examples",
-)
+REPO_HOST_DIR = os.environ.get("MLOPS_EXAMPLES_HOST_DIR")
+if not REPO_HOST_DIR:
+    raise RuntimeError(
+        "Set MLOPS_EXAMPLES_HOST_DIR to the host path of your mlops-examples checkout."
+    )
 REPO_CONTAINER_DIR = "/work"
 RUNNER_IMAGE = "mlops-examples-runner"
 NETWORK_NAME = os.environ.get("MLOPS_NETWORK", "mlops")
@@ -23,16 +24,22 @@ COMMON_ENV = {
     # log.py prefers MLFLOW_TRACKING_URI from the environment, so use the
     # internal Docker-network address here instead of the external nginx path.
     "MLFLOW_TRACKING_URI": os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000"),
-    "POSTGRES_HOST": os.environ.get("POSTGRES_HOST", "mlflow-postgres"),
+    "POSTGRES_HOST": os.environ.get("POSTGRES_HOST", "postgres"),
     "POSTGRES_PORT": os.environ.get("POSTGRES_PORT", "5432"),
     "POSTGRES_USER": os.environ.get("POSTGRES_USER", ""),
     "POSTGRES_PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
     "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID", ""),
     "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY", ""),
     "AWS_DEFAULT_REGION": os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
-    "MLFLOW_TRACKING_USERNAME": os.environ.get("MLFLOW_TRACKING_USERNAME", ""),
-    "MLFLOW_TRACKING_PASSWORD": os.environ.get("MLFLOW_TRACKING_PASSWORD", ""),
-    "PYTHONPATH": REPO_CONTAINER_DIR,
+    "MLFLOW_TRACKING_USERNAME": (
+        os.environ.get("MLFLOW_TRACKING_USERNAME")
+        or os.environ.get("MLFLOW_AUTH_ADMIN_USERNAME", "")
+    ),
+    "MLFLOW_TRACKING_PASSWORD": (
+        os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        or os.environ.get("MLFLOW_AUTH_ADMIN_PASSWORD", "")
+    ),
+    "PYTHONPATH": f"{REPO_CONTAINER_DIR}/src",
 }
 
 COMMON_MOUNTS = [
@@ -83,7 +90,7 @@ with DAG(
     extract_data = runner_task(
         "extract_data",
         (
-            "/opt/venv/bin/python scripts/extract.py --out data/raw/breast_cancer.csv && "
+            "/opt/venv/bin/python -m mlops_examples.cli.extract --out data/raw/breast_cancer.csv && "
             "/opt/venv/bin/dvc add data/raw/breast_cancer.csv"
         ),
     )
@@ -93,7 +100,7 @@ with DAG(
         (
             "trap 'rm -f .dvc/config.local' EXIT; "
             "/opt/venv/bin/dvc remote modify --local rustfs endpointurl "
-            "http://mlflow-rustfs:9000 >/dev/null; "
+            "http://rustfs:9000 >/dev/null; "
             "/opt/venv/bin/dvc push"
         ),
     )
@@ -103,47 +110,57 @@ with DAG(
         (
             "trap 'rm -f .dvc/config.local' EXIT; "
             "/opt/venv/bin/dvc remote modify --local rustfs endpointurl "
-            "http://mlflow-rustfs:9000 >/dev/null; "
+            "http://rustfs:9000 >/dev/null; "
             "/opt/venv/bin/dvc pull"
         ),
     )
 
     transform_data = runner_task(
         "transform_data",
+        "/opt/venv/bin/python -m mlops_examples.cli.transform",
+    )
+
+    snapshot_features = runner_task(
+        "snapshot_features",
         (
-            "/opt/venv/bin/python scripts/transform.py && "
-            "/opt/venv/bin/dvc add data/processed/breast_cancer_transformed.csv"
+            "/opt/venv/bin/python -m mlops_examples.cli.snapshot --config configs/dev.yaml && "
+            "/opt/venv/bin/dvc add data/features/current"
         ),
     )
 
-    load_features = runner_task(
-        "load_features",
+    push_snapshot = runner_task(
+        "push_snapshot",
         (
-            "/opt/venv/bin/feast -c feature_repo apply && "
-            "/opt/venv/bin/python scripts/load.py --config configs/dev.yaml"
+            "trap 'rm -f .dvc/config.local' EXIT; "
+            "/opt/venv/bin/dvc remote modify --local rustfs endpointurl "
+            "http://rustfs:9000 >/dev/null; "
+            "/opt/venv/bin/dvc push"
         ),
     )
 
     split_data = runner_task(
         "split_data",
-        "/opt/venv/bin/python scripts/split.py --config configs/dev.yaml",
+        (
+            "/opt/venv/bin/feast -c feature_store apply && "
+            "/opt/venv/bin/python -m mlops_examples.cli.split --config configs/dev.yaml"
+        ),
     )
 
     train_model = runner_task(
         "train_model",
-        "/opt/venv/bin/python scripts/train.py --config configs/dev.yaml",
+        "/opt/venv/bin/python -m mlops_examples.cli.train --config configs/dev.yaml",
     )
 
     evaluate_model = runner_task(
         "evaluate_model",
-        "/opt/venv/bin/python scripts/eval.py --config configs/dev.yaml",
+        "/opt/venv/bin/python -m mlops_examples.cli.eval --config configs/dev.yaml",
     )
 
     log_to_mlflow = runner_task(
         "log_to_mlflow",
         (
             "if [ -f .env.user ]; then set -a; . ./.env.user; set +a; fi; "
-            "/opt/venv/bin/python scripts/log.py --config configs/dev.yaml"
+            "/opt/venv/bin/python -m mlops_examples.cli.log --config configs/dev.yaml"
         ),
     )
 
@@ -153,7 +170,8 @@ with DAG(
         >> push_data
         >> pull_data
         >> transform_data
-        >> load_features
+        >> snapshot_features
+        >> push_snapshot
         >> split_data
         >> train_model
         >> evaluate_model

@@ -1,16 +1,33 @@
-# This is an example feature definition file
-
+from pathlib import Path
 from datetime import timedelta
-from feast.types import Float32, Float64, Int64
+from feast.types import Float64, Int64
 from feast import (
     Entity,
     FeatureView,
+    FileSource,
     Field,
     ValueType,
-    FeatureService
+    FeatureService,
+)
+from feast.data_format import ParquetFormat
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SNAPSHOT_DIR = REPO_ROOT / "data" / "features" / "current"
+
+features_source = FileSource(
+    name="features_snapshot",
+    path=str((SNAPSHOT_DIR / "features.parquet").resolve()),
+    timestamp_field="event_timestamp",
+    file_format=ParquetFormat(),
 )
 
-from feast.infra.offline_stores.contrib.postgres_offline_store.postgres_source import PostgreSQLSource
+targets_source = FileSource(
+    name="targets_snapshot",
+    path=str((SNAPSHOT_DIR / "targets.parquet").resolve()),
+    timestamp_field="event_timestamp",
+    file_format=ParquetFormat(),
+)
 
 patient = Entity(name = 'patient_id', value_type = ValueType.INT64, description = 'ID of the patient')
 
@@ -49,7 +66,7 @@ features_fv = FeatureView(
         Field(name = "worst symmetry", dtype = Float64),
         Field(name = "worst fractal dimension", dtype = Float64),
     ],
-    source = PostgreSQLSource(table="public.features_df", timestamp_field="event_timestamp")
+    source = features_source
 )
 
 target_fv = FeatureView(
@@ -59,7 +76,7 @@ target_fv = FeatureView(
     schema = [
         Field(name = "target", dtype = Int64)
     ],
-    source = PostgreSQLSource(table="public.target_df", timestamp_field="event_timestamp")
+    source = targets_source
 )
 
 patient_features = FeatureService(

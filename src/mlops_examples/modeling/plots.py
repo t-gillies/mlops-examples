@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -6,7 +8,6 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 
 def plot_confusion(cm: np.ndarray, out_path: Path) -> None:
-    """Save a confusion-matrix heatmap to *out_path*."""
     fig = plt.figure()
     plt.imshow(cm)
     plt.title("Confusion Matrix")
@@ -20,7 +21,6 @@ def plot_confusion(cm: np.ndarray, out_path: Path) -> None:
 
 
 def plot_roc_curve(y_true: np.ndarray, y_score: np.ndarray, out_path: Path) -> None:
-    """Save an ROC curve plot to *out_path*."""
     fpr, tpr, _ = roc_curve(y_true, y_score)
     fig = plt.figure()
     plt.plot(fpr, tpr, label="ROC")
@@ -36,7 +36,6 @@ def plot_roc_curve(y_true: np.ndarray, y_score: np.ndarray, out_path: Path) -> N
 
 
 def plot_pr_curve(y_true: np.ndarray, y_score: np.ndarray, out_path: Path) -> None:
-    """Save a precision-recall curve plot to *out_path*."""
     precision, recall, _ = precision_recall_curve(y_true, y_score)
     fig = plt.figure()
     plt.plot(recall, precision, label="PR")
@@ -55,12 +54,11 @@ def plot_feature_importance(
     out_path: Path,
     top_n: int = 15,
 ) -> None:
-    """Save a horizontal bar chart of the top *top_n* feature importances."""
     order = np.argsort(importances)[::-1]
     top_idx = order[:top_n]
     fig = plt.figure(figsize=(8, 6))
     plt.barh(
-        [feature_names[i] for i in top_idx][::-1],
+        [feature_names[index] for index in top_idx][::-1],
         importances[top_idx][::-1],
     )
     plt.xlabel("Importance")

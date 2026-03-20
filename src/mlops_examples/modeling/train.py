@@ -1,25 +1,24 @@
-import argparse
-import json
+from __future__ import annotations
+
 import pickle
 from pathlib import Path
 
 import pandas as pd
-import yaml
 from sklearn.ensemble import RandomForestClassifier
 
+from mlops_examples.config import load_config
 
-def main(config_path: str) -> None:
-    cfg = yaml.safe_load(Path(config_path).read_text())
+
+def train_model(config_path: str) -> None:
+    cfg = load_config(config_path)
 
     split_dir = Path(cfg["data"]["split_dir"])
     model_dir = Path(cfg["artifacts"]["model_dir"])
     model_dir.mkdir(parents=True, exist_ok=True)
 
     train_df = pd.read_csv(split_dir / "train.csv")
-
-    X_train = train_df.drop(columns=["target", "event_timestamp", "patient_id"])
+    x_train = train_df.drop(columns=["target", "event_timestamp", "patient_id"])
     y_train = train_df["target"]
-
 
     model = RandomForestClassifier(
         n_estimators=int(cfg["train"]["n_estimators"]),
@@ -34,17 +33,10 @@ def main(config_path: str) -> None:
         random_state=int(cfg["train"]["seed"]),
         n_jobs=None,
     )
-    model.fit(X_train, y_train)
+    model.fit(x_train, y_train)
 
-    with (model_dir / "model.pkl").open("wb") as f:
-        pickle.dump(model, f)
+    model_path = model_dir / "model.pkl"
+    with model_path.open("wb") as handle:
+        pickle.dump(model, handle)
 
-
-    print(f"Wrote model to: {(model_dir / 'model.pkl').resolve()}")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/dev.yaml")
-    args = parser.parse_args()
-    main(args.config)
+    print(f"Wrote model to: {model_path.resolve()}")

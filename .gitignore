@@ -11,10 +11,12 @@ __pycache__/
 .dvc/tmp/
 .dvc/config.local
 
-# Data (we will track via DVC)
-data/raw/breast_cancer.csv
-data/raw/breast_cancer_transformed.csv
-data/raw/breast_cancer.appended
+# Legacy pre-split data paths (do not commit)
+data/breast_cancer.csv
+data/breast_cancer.appended
 
 # Artifacts
 artifacts/
+
+# DVC-tracked feature snapshot contents
+data/features/current/
