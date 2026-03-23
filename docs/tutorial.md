@@ -92,13 +92,18 @@ make push
 ## Step 3: Configure Feast Feature Store
 Training now pulls features from a DVC-tracked Parquet snapshot. Feast still keeps its registry in Postgres, but the offline training data is read from local Parquet files restored by DVC.
 
-Build the feature snapshot:
+Build and track the feature snapshot:
 ```bash
 make runner-build
 make snapshot-docker
+git add data/features/current.dvc data/features/.gitignore
+git commit -m "Track feature snapshot"
+make push
 ```
 
-Training uses the FeatureService `patient_features`. The split step re-applies the Feast repo before retrieval so the registry stays in sync with the checked-out code.
+`make snapshot-docker` writes DVC metadata under `data/features/`. Commit `data/features/current.dvc` and `data/features/.gitignore`; the Parquet snapshot payload under `data/features/current/` remains ignored and is stored through DVC.
+
+Training uses the FeatureService `patient_features`. The split step re-applies the Feast repo before retrieval so the registry stays in sync with the checked-out code. Feast may also create local SQLite state under `feature_store/data/`; that file is local runtime state and should remain untracked.
 
 ---
 
@@ -182,6 +187,8 @@ git commit -m "Add breast_cancer dataset version"
 make push
 make transform
 make snapshot-docker
+git add data/features/current.dvc data/features/.gitignore
+git commit -m "Track updated feature snapshot"
 make push
 make split-docker
 make train
@@ -201,6 +208,8 @@ git commit -m "Update dataset version"
 make push
 make transform
 make snapshot-docker
+git add data/features/current.dvc data/features/.gitignore
+git commit -m "Track updated feature snapshot"
 make push
 make split-docker
 make train

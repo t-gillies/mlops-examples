@@ -217,8 +217,12 @@ Training reads features from a local Parquet snapshot that is DVC-tracked and st
 ```bash
 make runner-build
 make snapshot-docker
+git add data/features/current.dvc data/features/.gitignore
+git commit -m "Track feature snapshot"
 make push
 ```
+
+`make snapshot-docker` updates the DVC metadata for the feature snapshot. Commit `data/features/current.dvc` and `data/features/.gitignore`; the snapshot contents under `data/features/current/` stay ignored and are stored through DVC.
 
 If you prefer to build the snapshot directly on the host, you can still use:
 
@@ -228,6 +232,7 @@ make snapshot
 
 Host fallback note:
 - `make snapshot` only needs the local workspace and DVC tooling. The split step still expects the Postgres variables referenced by `configs/*.yaml` so Feast can sync the registry from the checked-out repo.
+- Feast may create local SQLite state under `feature_store/data/` when the repo is applied. That file is local runtime state for the default local provider and is not part of the tracked tutorial outputs.
 
 ### 4) Create train/test splits from Feast features
 

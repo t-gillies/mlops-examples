@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.runner
     image: mlops-examples-runner
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     working_dir: /work
     volumes:
       - .:/work

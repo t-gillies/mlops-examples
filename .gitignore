@@ -11,9 +11,10 @@ __pycache__/
 .dvc/tmp/
 .dvc/config.local
 
-# Legacy pre-split data paths (do not commit)
+# Generated local data state (do not commit)
 data/breast_cancer.csv
 data/breast_cancer.appended
+feature_store/data/
 
 # Artifacts
 artifacts/

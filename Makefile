@@ -31,9 +31,11 @@ help:
 
 MLOPS_SERVICES_DIR ?= ../mlops-services
 TRAIN_CONFIG ?= configs/dev.yaml
+HOST_UID ?= $(shell id -u 2>/dev/null || echo 1000)
+HOST_GID ?= $(shell id -g 2>/dev/null || echo 1000)
 RUNNER_INTERNAL_POSTGRES_HOST = postgres
 RUNNER_INTERNAL_MLFLOW_URI = http://mlflow:5000
-RUNNER_COMPOSE = docker compose -f docker-compose.runner.yml
+RUNNER_COMPOSE = HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) docker compose -f docker-compose.runner.yml
 RUNNER_DVC = /opt/venv/bin/dvc
 RUNNER_FEAST = /opt/venv/bin/feast
 RUNNER_PYTHON = /opt/venv/bin/python
