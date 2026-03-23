@@ -1,13 +1,20 @@
 FROM python:3.11-slim
 
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
-ENV PATH=/opt/venv/bin:/root/.local/bin:${PATH}
+ENV PATH=/opt/venv/bin:${PATH}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
   && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    if ! getent group "${HOST_GID}" >/dev/null; then groupadd --gid "${HOST_GID}" runner; fi; \
+    if ! getent passwd "${HOST_UID}" >/dev/null; then useradd --uid "${HOST_UID}" --gid "${HOST_GID}" --create-home --shell /bin/bash runner; fi
 
 RUN pip install --no-cache-dir uv
 
